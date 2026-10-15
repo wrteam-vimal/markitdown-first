@@ -1,0 +1,62 @@
+{
+  "description": "markitdown-first: convert PDFs, Office files and more to Markdown before Claude reads them",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh",
+              "hook-sessionstart"
+            ],
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh",
+              "setup",
+              "--quiet"
+            ],
+            "async": true,
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh",
+              "hook-pretooluse"
+            ],
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh",
+              "hook-userpromptsubmit"
+            ],
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "markitdown-first",
+  "description": "Markdown-first document reading for Claude",
+  "owner": { "name": "wrteam-vimal", "url": "https://github.com/wrteam-vimal" },
+  "plugins": [
+    {
+      "name": "markitdown-first",
+      "description": "Convert PDFs, Office files and more to Markdown before Claude reads them. Saves tokens.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

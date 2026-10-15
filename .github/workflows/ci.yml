@@ -1,0 +1,23 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s tests -v
+      - name: end-to-end conversion
+        run: |
+          bash scripts/run.sh setup
+          printf '<h1>Hello</h1><table><tr><td>a</td><td>b</td></tr></table><p>%s</p>' "$(printf 'x%.0s' {1..100})" > sample.html
+          bash scripts/run.sh convert sample.html | tee out.txt
+          grep -q '^OK' out.txt

@@ -1,0 +1,11 @@
+{
+  "name": "markitdown-first",
+  "displayName": "MarkItDown First",
+  "version": "0.1.0",
+  "description": "Converts PDFs, Word, PowerPoint, Excel, EPUB, HTML, Outlook and more to Markdown with Microsoft markitdown before Claude reads them, so files cost fewer tokens. Pick which file types to convert.",
+  "author": { "name": "wrteam-vimal", "url": "https://github.com/wrteam-vimal" },
+  "homepage": "https://github.com/wrteam-vimal/markitdown-first",
+  "repository": "https://github.com/wrteam-vimal/markitdown-first",
+  "license": "MIT",
+  "keywords": ["markitdown", "markdown", "pdf", "docx", "xlsx", "pptx", "tokens", "documents"]
+}

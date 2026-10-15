@@ -1,0 +1,6 @@
+{
+  "markitdown": {
+    "command": "bash",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/run.sh", "mcp"]
+  }
+}
