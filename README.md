@@ -33,6 +33,20 @@ Before Claude touches a PDF, Word, PowerPoint, Excel, EPUB, HTML, Outlook or not
    ```text
    /plugin install markitdown-first@markitdown-first
    ```
+   Claude Code then asks the **OCR questions**. Just press Enter to skip them if you don't need OCR. See [OCR](#ocr-scanned-pdfs-and-text-in-images) for what to answer.
+   | Question | What to enter |
+   |---|---|
+   | Enable OCR | `false` (default) = convert locally only. `true` = also read text from scanned pages and images |
+   | OCR API key | Your OpenAI (or other provider) key. Leave empty for a local Ollama |
+   | OCR model | `gpt-4o-mini` (default), or your provider's vision model |
+   | OCR endpoint URL | Empty for OpenAI. For other providers see the OCR section |
+
+   You can also answer the OCR questions straight from a terminal while installing:
+   ```bash
+   claude plugin install markitdown-first@markitdown-first --config enable_ocr=true --config ocr_model=gpt-4o-mini
+   echo '{"ocr_api_key":"sk-..."}' | claude plugin configure markitdown-first@markitdown-first --values-stdin
+   ```
+   The second line stores the key in secure storage and keeps it out of your shell history's `--config` arguments.
 6. **Restart Claude.** Type `/exit`, then run `claude` again.
 7. **Wait about 2 minutes the first time.** markitdown installs in the background, and this happens only once. Files read before it finishes are read normally.
 
@@ -64,16 +78,38 @@ Before Claude touches a PDF, Word, PowerPoint, Excel, EPUB, HTML, Outlook or not
     ```
     Claude lists the documents in the folder and lets you tick which ones to convert.
 
-### 4. Use it in the Claude app on claude.ai (optional)
+### 4. Uninstall
 
-13. **Build the skill file.** In a terminal (not inside Claude), run:
+15. **Remove the plugin.** Inside Claude, run:
+    ```text
+    /plugin uninstall markitdown-first@markitdown-first
+    ```
+    This also deletes the plugin's private markitdown install and its saved OCR answers. The API key is removed from secure storage as well.
+16. **Remove the plugin source** (optional, so it no longer shows up in `/plugin`):
+    ```text
+    /plugin marketplace remove markitdown-first
+    ```
+17. **Restart Claude.** Type `/exit`, then run `claude` again.
+18. **Clean up leftovers** (optional). In a terminal, not inside Claude, run:
+    ```bash
+    rm -rf ~/.config/markitdown-first          # your type choices
+    rm -rf .markitdown-cache                   # converted files, run inside each project you used
+    rm -f .claude/markitdown-first.json        # per-project settings, if you made any
+    ```
+19. **Claude app:** if you uploaded the skill, delete it under **Settings → Capabilities → Skills**.
+
+To turn the plugin off without uninstalling, run `/plugin disable markitdown-first@markitdown-first`. `/plugin enable markitdown-first@markitdown-first` turns it back on.
+
+### 5. Use it in the Claude app on claude.ai (optional)
+
+20. **Build the skill file.** In a terminal (not inside Claude), run:
     ```bash
     git clone https://github.com/wrteam-vimal/markitdown-first.git
     cd markitdown-first
     ./build/build-skill-zip.sh
     ```
     This creates `dist/markitdown-first-skill.zip`.
-14. **Upload it.** On claude.ai, go to **Settings → Capabilities → Skills** and upload the zip. After that, Claude converts uploaded documents to Markdown before it answers.
+21. **Upload it.** On claude.ai, go to **Settings → Capabilities → Skills** and upload the zip. After that, Claude converts uploaded documents to Markdown before it answers.
 
 ### If something goes wrong
 
@@ -95,6 +131,34 @@ Before Claude touches a PDF, Word, PowerPoint, Excel, EPUB, HTML, Outlook or not
 | A conversion yields almost no text (for example a scanned PDF) | The original file is read instead, so nothing is lost. |
 
 Converted files are cached in `.markitdown-cache/` inside your project. The cache key is path + size + mtime. The folder ignores itself in git. markitdown is installed once into the plugin's private data directory (`${CLAUDE_PLUGIN_DATA}/venv`), and your system Python is untouched.
+
+## OCR: scanned PDFs and text in images
+
+markitdown alone extracts only the text layer. A scanned PDF or a photo of a page has no text layer, so without OCR the plugin hands Claude the original file instead. Turn on OCR to convert those as well. Each page image or embedded image is sent to a **vision model** through Microsoft's [markitdown-ocr](https://github.com/microsoft/markitdown/tree/main/packages/markitdown-ocr) plugin, and the recognized text is placed into the Markdown.
+
+You're asked about OCR when you install the plugin. Any OpenAI-compatible provider works:
+
+| Provider | OCR API key | OCR model | OCR endpoint URL |
+|---|---|---|---|
+| OpenAI | `sk-…` | `gpt-4o-mini` | *(empty)* |
+| OpenRouter | `sk-or-…` | `google/gemini-2.0-flash-001` | `https://openrouter.ai/api/v1` |
+| Ollama (free, runs on your computer) | *(empty)* | `llama3.2-vision` | `http://localhost:11434/v1` |
+| Azure / other | your key | your deployment | your OpenAI-compatible URL |
+
+**What OCR adds:**
+- **Scanned PDFs:** every page is OCR'd.
+- **PDF, Word, PowerPoint and Excel files:** text inside embedded pictures is added.
+- **Image files:** they get a text description. Run `/markitdown-first:config include images` to convert them.
+
+**Privacy:** with a cloud provider, page images are sent to that provider. Use Ollama to keep everything on your machine. With OCR off, which is the default, nothing leaves your computer.
+
+**Cost and speed:** there's one model call per page image, and results are cached, so a file is OCR'd only once.
+
+**Change OCR later** (restart Claude afterwards):
+- **Any answer, including the API key:** run `/plugin configure markitdown-first@markitdown-first` inside Claude. From a terminal, run `claude plugin configure markitdown-first@markitdown-first` to see the current options, and pipe JSON with `--values-stdin` to change them, as shown in step 5.
+- **Turn it on or off, or change the model or URL:** you can also edit the *markitdown-first* rows in `/config`.
+- **Per project:** run `/markitdown-first:config set ocr=false --project`.
+- **Check that OCR is active:** ask Claude to run the markitdown-first status command. The `ocr:` line shows `on`, or the reason it isn't active.
 
 ## Install
 
@@ -152,7 +216,7 @@ This opens multi-select pickers (Documents / Data / Other) where you tick the ty
 | `csv` | .csv | off (already text) |
 | `zip` | .zip | off |
 | `audio` | .mp3 .wav .m4a | off (speech transcription, slow) |
-| `images` | .jpg .png … | off (Claude sees images natively; markitdown alone extracts only EXIF unless you enable an OCR plugin) |
+| `images` | .jpg .png … | off (Claude sees images natively; useful only with [OCR](#ocr-scanned-pdfs-and-text-in-images) on) |
 
 To pick individual files to convert, run `/markitdown-first:convert [folder]`. It lists the documents and lets you multi-select which ones to convert.
 
@@ -169,6 +233,9 @@ User settings live in `~/.config/markitdown-first/config.json`. Project settings
 | `max_file_mb` | `100` | Larger files are read as-is |
 | `timeout_sec` | `90` | Per-file conversion timeout |
 | `use_plugins` | `false` | Enable markitdown plugins, such as [markitdown-ocr](https://github.com/microsoft/markitdown/tree/main/packages/markitdown-ocr) |
+| `ocr` | `false` | Use a vision model for OCR. Normally set by the install question; a value here overrides it |
+| `ocr_model` | `gpt-4o-mini` | Vision model name |
+| `ocr_base_url` | `""` | OpenAI-compatible endpoint; empty = OpenAI |
 | `install` | `["markitdown[pdf,docx,pptx,xlsx,xls,outlook,audio-transcription]"]` | pip requirements for the private venv. Point it at a fork, for example `"markitdown[all] @ git+https://github.com/you/markitdown.git#subdirectory=packages/markitdown"`. The venv is rebuilt when this changes. |
 
 ## Develop
@@ -192,6 +259,7 @@ skills/config                    /markitdown-first:config (type picker)
 skills/convert                   /markitdown-first:convert (file picker)
 skills/read-documents            model-invoked guidance; also the claude.ai upload skill
 scripts/mdfirst.py               all logic, stdlib-only
+scripts/convert_runner.py        runs inside the private venv; calls markitdown (+ OCR)
 scripts/run.sh                   finds Python 3.10+
 ```
 
@@ -199,7 +267,8 @@ scripts/run.sh                   finds Python 3.10+
 
 - Images pasted straight into the chat reach Claude as images, not as files, so no hook sees them.
 - Claude Code refuses to `Read` binary Office files before any hook runs. They are converted when they appear in your message, or when Claude runs the convert command, not on a bare `Read`.
-- Conversion quality is markitdown's. For layout-heavy or scanned documents, exclude them or enable an OCR plugin.
+- Conversion quality is markitdown's. For layout-heavy documents, exclude them so Claude reads the original. For scanned documents, turn on [OCR](#ocr-scanned-pdfs-and-text-in-images).
+- The OCR API key is only given to the plugin's hooks. Files converted automatically use it. A manual `/markitdown-first:convert` uses OCR only if `MARKITDOWN_OCR_API_KEY` or `OPENAI_API_KEY` is set, or the endpoint is local.
 
 ## License
 

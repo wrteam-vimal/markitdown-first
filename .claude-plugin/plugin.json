@@ -1,11 +1,48 @@
 {
   "name": "markitdown-first",
   "displayName": "MarkItDown First",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Converts PDFs, Word, PowerPoint, Excel, EPUB, HTML, Outlook and more to Markdown with Microsoft markitdown before Claude reads them, so files cost fewer tokens. Pick which file types to convert.",
-  "author": { "name": "wrteam-vimal", "url": "https://github.com/wrteam-vimal" },
+  "author": {
+    "name": "wrteam-vimal",
+    "url": "https://github.com/wrteam-vimal"
+  },
   "homepage": "https://github.com/wrteam-vimal/markitdown-first",
   "repository": "https://github.com/wrteam-vimal/markitdown-first",
   "license": "MIT",
-  "keywords": ["markitdown", "markdown", "pdf", "docx", "xlsx", "pptx", "tokens", "documents"]
+  "keywords": [
+    "markitdown",
+    "markdown",
+    "pdf",
+    "docx",
+    "xlsx",
+    "pptx",
+    "tokens",
+    "documents"
+  ],
+  "userConfig": {
+    "enable_ocr": {
+      "type": "boolean",
+      "title": "Enable OCR",
+      "description": "Read text from scanned PDFs and images inside PDF/Word/PowerPoint/Excel files and image files, using an OpenAI-compatible vision model (OpenAI, OpenRouter, Azure, local Ollama\u2026). Page images are sent to that model's provider. Leave off to convert locally only.",
+      "default": false
+    },
+    "ocr_api_key": {
+      "type": "string",
+      "title": "OCR API key",
+      "description": "API key for the vision model provider. Leave empty for a local endpoint such as Ollama, or to use the OPENAI_API_KEY environment variable.",
+      "sensitive": true
+    },
+    "ocr_model": {
+      "type": "string",
+      "title": "OCR model",
+      "description": "Vision model name, e.g. gpt-4o-mini (OpenAI), google/gemini-2.0-flash-001 (OpenRouter), llama3.2-vision (Ollama).",
+      "default": "gpt-4o-mini"
+    },
+    "ocr_base_url": {
+      "type": "string",
+      "title": "OCR endpoint URL",
+      "description": "OpenAI-compatible base URL. Empty = OpenAI. Examples: https://openrouter.ai/api/v1, http://localhost:11434/v1"
+    }
+  }
 }

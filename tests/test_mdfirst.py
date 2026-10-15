@@ -84,6 +84,56 @@ class Config(Base):
         self.assertFalse(mdfirst.is_excluded(self.proj / "ok.pdf", self.proj, cfg))
 
 
+class Ocr(Base):
+    def setUp(self):
+        super().setUp()
+        for k in ("OPENAI_API_KEY", "MARKITDOWN_OCR_API_KEY"):
+            os.environ.pop(k, None)
+
+    def test_off_by_default(self):
+        cfg = mdfirst.load_config(self.proj)
+        self.assertFalse(cfg["ocr"])
+        self.assertNotIn("markitdown-ocr", cfg["install"])
+
+    def test_install_answers_enable_ocr_and_add_packages(self):
+        with mock.patch.dict(
+            os.environ,
+            {"CLAUDE_PLUGIN_OPTION_ENABLE_OCR": "true", "CLAUDE_PLUGIN_OPTION_OCR_MODEL": "m1", "CLAUDE_PLUGIN_OPTION_OCR_API_KEY": "k"},
+        ):
+            cfg = mdfirst.load_config(self.proj)
+            self.assertTrue(cfg["ocr"])
+            self.assertEqual(cfg["ocr_model"], "m1")
+            self.assertIn("markitdown-ocr", cfg["install"])
+            self.assertEqual(mdfirst.ocr_ready(cfg), (True, "on"))
+
+    def test_session_start_saves_answers_without_the_key(self):
+        with mock.patch.dict(
+            os.environ,
+            {"CLAUDE_PLUGIN_OPTION_ENABLE_OCR": "true", "CLAUDE_PLUGIN_OPTION_OCR_API_KEY": "secret-key"},
+        ):
+            self.run_cli("hook-sessionstart")
+        saved = mdfirst.ocr_state_path().read_text()
+        self.assertIn('"ocr": true', saved)
+        self.assertNotIn("secret-key", saved)
+        # Commands Claude runs itself (no plugin env) still see OCR as enabled.
+        self.assertTrue(mdfirst.load_config(self.proj)["ocr"])
+
+    def test_no_key_and_no_endpoint_is_not_ready(self):
+        self.run_cli("config", "set", "ocr=true")
+        ok, why = mdfirst.ocr_ready(mdfirst.load_config(self.proj))
+        self.assertFalse(ok)
+        self.assertIn("API key", why)
+
+    def test_local_endpoint_needs_no_key(self):
+        self.run_cli("config", "set", "ocr=true", "ocr_base_url=http://localhost:11434/v1")
+        self.assertTrue(mdfirst.ocr_ready(mdfirst.load_config(self.proj))[0])
+
+    def test_config_file_overrides_install_answer(self):
+        self.run_cli("config", "set", "ocr=false", "--project")
+        with mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_OPTION_ENABLE_OCR": "true"}):
+            self.assertFalse(mdfirst.load_config(self.proj)["ocr"])
+
+
 class Hooks(Base):
     def event(self, path, tool="Read"):
         return json.dumps({"tool_name": tool, "cwd": str(self.proj), "tool_input": {"file_path": str(path)}})

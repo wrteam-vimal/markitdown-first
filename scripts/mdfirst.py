@@ -69,7 +69,14 @@ DEFAULT_CONFIG = {
     # What pip installs into the private virtualenv. Point this at a fork with
     # e.g. "markitdown[all] @ git+https://github.com/you/markitdown.git#subdirectory=packages/markitdown"
     "install": ["markitdown[pdf,docx,pptx,xlsx,xls,outlook,audio-transcription]"],
+    # OCR through an OpenAI-compatible vision model (markitdown-ocr). Normally set
+    # by the plugin's install-time questions; a value here overrides them.
+    "ocr": False,
+    "ocr_model": "gpt-4o-mini",
+    "ocr_base_url": "",
 }
+
+OCR_PACKAGES = ["markitdown-ocr", "openai"]
 
 CACHE_DIRNAME = ".markitdown-cache"
 
@@ -134,13 +141,55 @@ def _write_json(p: Path, data: dict) -> None:
     os.replace(tmp, p)
 
 
+def ocr_state_path() -> Path:
+    return data_dir() / "ocr_state.json"
+
+
+def _plugin_options() -> dict:
+    """OCR answers from the plugin's install-time questions. Claude Code exports
+    them only to hook processes, so the non-secret ones are saved for commands
+    Claude runs itself (the API key is never written to disk)."""
+    env = os.environ
+    opts = {}
+    if env.get("CLAUDE_PLUGIN_OPTION_ENABLE_OCR", "") != "":
+        opts["ocr"] = env["CLAUDE_PLUGIN_OPTION_ENABLE_OCR"].strip().lower() in ("1", "true", "yes", "on")
+    for key in ("ocr_model", "ocr_base_url"):
+        val = env.get("CLAUDE_PLUGIN_OPTION_" + key.upper(), "").strip()
+        if val:
+            opts[key] = val
+    return opts
+
+
 def load_config(proj: Path) -> dict:
-    """Defaults <- user config <- project config (project wins per key)."""
+    """Defaults <- OCR install answers <- user config <- project config."""
     cfg = dict(DEFAULT_CONFIG)
+    options = _plugin_options()
+    cfg.update(options or _read_json(ocr_state_path()))
     cfg.update(_read_json(user_config_path()))
     cfg.update(_read_json(project_config_path(proj)))
     cfg["types"] = [t for t in cfg.get("types", []) if t in TYPES]
+    if cfg.get("ocr"):
+        cfg["install"] = list(cfg["install"]) + [p for p in OCR_PACKAGES if p not in cfg["install"]]
     return cfg
+
+
+def ocr_api_key() -> str:
+    env = os.environ
+    return (
+        env.get("CLAUDE_PLUGIN_OPTION_OCR_API_KEY")
+        or env.get("MARKITDOWN_OCR_API_KEY")
+        or env.get("OPENAI_API_KEY")
+        or ""
+    )
+
+
+def ocr_ready(cfg: dict) -> tuple[bool, str]:
+    """Whether OCR can run for this conversion, and why not."""
+    if not cfg.get("ocr"):
+        return False, "off"
+    if not ocr_api_key() and not cfg.get("ocr_base_url"):
+        return False, "no API key (set MARKITDOWN_OCR_API_KEY, or re-enter it in the plugin's settings)"
+    return True, "on"
 
 
 def enabled_extensions(cfg: dict) -> set[str]:
@@ -226,9 +275,9 @@ def is_excluded(path: Path, proj: Path, cfg: dict) -> bool:
     return CACHE_DIRNAME in path.parts
 
 
-def cache_path(src: Path, proj: Path) -> Path:
+def cache_path(src: Path, proj: Path, ocr_tag: str = "") -> Path:
     st = src.stat()
-    key = f"{src}|{st.st_size}|{st.st_mtime_ns}".encode()
+    key = f"{src}|{st.st_size}|{st.st_mtime_ns}|{ocr_tag}".encode()
     digest = hashlib.sha256(key).hexdigest()[:10]
     cache = proj / CACHE_DIRNAME
     if not cache.exists():
@@ -252,14 +301,24 @@ def convert(src: Path, proj: Path, cfg: dict) -> tuple[Path | None, str]:
     if not is_ready(cfg):
         return None, "markitdown not installed yet"
 
-    out = cache_path(src, proj)
+    use_ocr, _ = ocr_ready(cfg)
+    out = cache_path(src, proj, f"ocr:{cfg['ocr_model']}" if use_ocr else "")
     if out.exists():
         return out, "cached"
-    cmd = [str(venv_python()), "-m", "markitdown", str(src), "-o", str(out)]
-    if cfg.get("use_plugins"):
-        cmd.append("--use-plugins")
+    # -I: isolated mode, so a project folder named "markitdown" can't shadow the package.
+    cmd = [str(venv_python()), "-I", str(Path(__file__).resolve().parent / "convert_runner.py"), str(src), str(out)]
+    env = dict(os.environ, MDF_PLUGINS="1" if cfg.get("use_plugins") else "0", MDF_OCR="0")
+    timeout = cfg["timeout_sec"]
+    if use_ocr:
+        env.update(
+            MDF_OCR="1",
+            MDF_OCR_MODEL=cfg["ocr_model"],
+            MDF_OCR_BASE_URL=cfg.get("ocr_base_url") or "",
+            MDF_OCR_API_KEY=ocr_api_key(),
+        )
+        timeout = max(timeout, 240)  # one model call per page image
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=cfg["timeout_sec"])
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         out.unlink(missing_ok=True)
         return None, "conversion timed out"
@@ -415,6 +474,9 @@ def hook_userpromptsubmit() -> int:
 
 def hook_sessionstart() -> int:
     root = Path(__file__).resolve().parent
+    options = _plugin_options()
+    if options:  # remember the non-secret OCR answers for /markitdown-first:convert
+        _write_json(ocr_state_path(), options)
     _emit(
         {
             "hookSpecificOutput": {
@@ -453,6 +515,12 @@ def cmd_status(proj: Path) -> int:
     off = [t for t in TYPES if t not in cfg["types"]]
     print(f"not converting: {', '.join(off) or '(nothing)'}")
     print(f"exclude_paths:  {cfg['exclude_paths'] or '(none)'}")
+    use_ocr, why = ocr_ready(cfg)
+    if cfg.get("ocr"):
+        where = cfg.get("ocr_base_url") or "OpenAI"
+        print(f"ocr:            {'on' if use_ocr else 'NOT ACTIVE: ' + why} (model {cfg['ocr_model']} via {where})")
+    else:
+        print("ocr:            off")
     print(f"min_chars={cfg['min_chars']} max_file_mb={cfg['max_file_mb']} timeout_sec={cfg['timeout_sec']} use_plugins={cfg['use_plugins']}")
     print(f"user config:    {user_config_path()}")
     print(f"project config: {project_config_path(proj)}")

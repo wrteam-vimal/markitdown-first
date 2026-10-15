@@ -38,7 +38,7 @@
               "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh",
               "hook-pretooluse"
             ],
-            "timeout": 120
+            "timeout": 300
           }
         ]
       }

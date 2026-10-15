@@ -30,5 +30,6 @@ Run `MDF config $ARGUMENTS` and report the resulting "converting" and "not conve
 
 - `exclude-path "<glob>"` skips matching files, for example `"docs/scans/**"` or `"*.signed.pdf"`. `include-path` removes such a pattern.
 - `MDF config set min_chars=200`: below this many extracted characters, the original file is read instead.
-- `max_file_mb`, `timeout_sec` and `use_plugins=true` (enables markitdown plugins such as markitdown-ocr) work the same way.
+- `max_file_mb`, `timeout_sec` and `use_plugins=true` work the same way.
+- OCR (scanned PDFs, text in images) uses a vision model and is normally set by the install questions. Override it with `MDF config set ocr=true|false`, `ocr_model=<name>` and `ocr_base_url=<url>`, adding `--project` for this project only. The `ocr:` line of `MDF status` shows whether OCR is active and, if not, why. Images are worth enabling (`include images`) only when OCR is on.
 - `MDF config set "install=markitdown[all] @ git+https://github.com/<you>/markitdown.git#subdirectory=packages/markitdown"` installs from a fork. Then run `MDF setup`.
