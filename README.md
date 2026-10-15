@@ -13,6 +13,78 @@ Before Claude touches a PDF, Word, PowerPoint, Excel, EPUB, HTML, Outlook or not
 
 *Measured on markitdown's own test fixtures.*
 
+## Quick start (step by step)
+
+**Before you start:** you need [Claude Code](https://code.claude.com) and Python 3.10 or newer. Check with `claude --version` and `python3 --version`.
+
+### 1. Install the plugin (one time only)
+
+1. **Open a terminal.**
+   - macOS: press `Cmd + Space`, type **Terminal**, press Enter.
+   - Windows: open **Git Bash**.
+   - Linux: open your terminal app.
+2. **Go to a project folder**, for example `cd ~/Documents`.
+3. **Start Claude Code** by running `claude`.
+4. **Add this repo as a plugin source.** Type this inside Claude:
+   ```text
+   /plugin marketplace add wrteam-vimal/markitdown-first
+   ```
+5. **Install the plugin:**
+   ```text
+   /plugin install markitdown-first@markitdown-first
+   ```
+6. **Restart Claude.** Type `/exit`, then run `claude` again.
+7. **Wait about 2 minutes the first time.** markitdown installs in the background, and this happens only once. Files read before it finishes are read normally.
+
+### 2. Check that it works
+
+8. **Give Claude a document.** Drag a PDF, Word or Excel file into the terminal window to paste its path, then add your question:
+   ```text
+   Summarize /path/to/report.pdf
+   ```
+9. **Look for the sign that it converted.** Claude mentions a `.md` file inside a `.markitdown-cache/` folder. If you ask *"did markitdown-first convert it?"*, Claude will say yes.
+
+### 3. Choose what gets converted (optional)
+
+10. **Open the picker:**
+    ```text
+    /markitdown-first:config
+    ```
+    Tick the file types you want, then choose **All my projects** or **This project only**.
+11. **Shortcuts if you don't want the picker:**
+    ```text
+    /markitdown-first:config show            # see current settings
+    /markitdown-first:config exclude excel   # stop converting Excel
+    /markitdown-first:config off             # pause the plugin
+    /markitdown-first:config on              # turn it back on
+    ```
+12. **Pick specific files to convert:**
+    ```text
+    /markitdown-first:convert
+    ```
+    Claude lists the documents in the folder and lets you tick which ones to convert.
+
+### 4. Use it in the Claude app on claude.ai (optional)
+
+13. **Build the skill file.** In a terminal (not inside Claude), run:
+    ```bash
+    git clone https://github.com/wrteam-vimal/markitdown-first.git
+    cd markitdown-first
+    ./build/build-skill-zip.sh
+    ```
+    This creates `dist/markitdown-first-skill.zip`.
+14. **Upload it.** On claude.ai, go to **Settings → Capabilities → Skills** and upload the zip. After that, Claude converts uploaded documents to Markdown before it answers.
+
+### If something goes wrong
+
+| Problem | Fix |
+|---|---|
+| Nothing seems to convert | Wait the 2 minutes from step 7, then restart Claude |
+| "Plugin not found" | Run step 4 again, then step 5 |
+| `python3: command not found` or version below 3.10 | Install Python from [python.org](https://www.python.org/downloads/) (on macOS, `brew install python` also works) |
+| Want to see the plugin's status | Ask Claude: *"run the markitdown-first status command"*, or run `bash scripts/run.sh status` from a clone of this repo |
+| Want to update | Run `/plugin marketplace update markitdown-first`, then restart Claude |
+
 ## How it works
 
 | When | What happens |
